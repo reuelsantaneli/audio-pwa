@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Gravação de Áudio</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="style.css">
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('service-worker.js');
+    }
+  </script>
+</head>
+<body>
+  <h2>Gravar Áudio</h2>
+  <label for="formId">ID do Formulário:</label>
+  <input type="text" id="formId" placeholder="Ex: F001"><br><br>
+
+  <button id="record">🎙️ Gravar</button>
+  <button id="stop" disabled>⏹️ Parar</button>
+  <br><br>
+
+  <audio id="audio" controls></audio>
+  <p id="status"></p>
+
+  <script>
+    let mediaRecorder;
+    let audioChunks = [];
+    const recordBtn = document.getElementById("record");
+    const stopBtn = document.getElementById("stop");
+    const audioTag = document.getElementById("audio");
+    const status = document.getElementById("status");
+
+    const WEBAPP_URL = "https://script.google.com/macros/s/SEU_DEPLOY_ID/exec"; // Substitua aqui
+
+    recordBtn.onclick = async () => {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaRecorder = new MediaRecorder(stream);
+
+      mediaRecorder.ondataavailable = event => {
+        audioChunks.push(event.data);
+      };
+
+      mediaRecorder.onstop = async () => {
+        const blob = new Blob(audioChunks, { type: 'audio/webm' });
+        audioTag.src = URL.createObjectURL(blob);
+        audioTag.play();
+
+        const formData = new FormData();
+        const formId = document.getElementById("formId").value || "sem_id";
+        formData.append('formId', formId);
+        formData.append('audioFile', blob, 'audio.webm');
+
+        status.innerText = "Enviando...";
+
+        const response = await fetch(WEBAPP_URL, {
+          method: 'POST',
+          body: formData,
+        });
+
+        const result = await response.text();
+        status.innerText = result.includes("Sucesso") ? "✅ Enviado com sucesso!" : "❌ Erro: " + result;
+      };
+
+      audioChunks = [];
+      mediaRecorder.start();
+      recordBtn.disabled = true;
+      stopBtn.disabled = false;
+    };
+
+    stopBtn.onclick = () => {
+      mediaRecorder.stop();
+      recordBtn.disabled = false;
+      stopBtn.disabled = true;
+    };
+  </script>
+</body>
+</html>
